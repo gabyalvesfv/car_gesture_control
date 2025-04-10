@@ -1,0 +1,96 @@
+int Sensor = 2;
+int Enable_E = 3;
+int Motor_DT = 4;
+int Motor_DF = 5;
+int Motor_EF = 6;
+int Motor_ET = 7;
+int Pino_Trig = 8;
+int Enable_D = 9;
+int Pino_Echo = 10;
+unsigned long millisAnterior = 0;
+const long intervalo = 1000;
+
+// Variáveis de controle
+int comando = 0;
+int velocidade = 0;
+
+void setup() {
+  Serial.begin(115200); // Comunicação com a ESP32
+
+  // Configura pinos como saída/entrada
+  pinMode(Pino_Trig, OUTPUT);
+  pinMode(Pino_Echo, INPUT);
+  pinMode(Enable_E, OUTPUT);
+  pinMode(Enable_D, OUTPUT);
+  pinMode(Motor_DT, OUTPUT);
+  pinMode(Motor_DF, OUTPUT);
+  pinMode(Motor_ET, OUTPUT);
+  pinMode(Motor_EF, OUTPUT);
+
+  digitalWrite(Enable_E, HIGH);
+  digitalWrite(Enable_D, HIGH);
+
+  Serial.println("INICIADO");
+}
+
+void loop() {
+  unsigned long millisAtual = millis();
+
+  // Verifica distância a cada 1s
+  if (millisAtual - millisAnterior >= intervalo) {
+    millisAnterior = millisAtual;
+
+    digitalWrite(Pino_Trig, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(Pino_Trig, LOW);
+
+    float Duracao_us = pulseIn(Pino_Echo, HIGH);
+    float Distancia_cm = 0.017 * Duracao_us;
+    Serial.print("Distancia: ");
+    Serial.println(Distancia_cm);
+  }
+
+  // Verifica se há dados na serial
+  if (Serial.available() > 1) {
+    comando = Serial.read();       // Lê o comando (1 byte)
+    velocidade = Serial.read();    // Lê a velocidade (1 byte)
+
+    Serial.print("Recebido -> Comando: ");
+    Serial.print(comando);
+    Serial.print(" | Velocidade: ");
+    Serial.println(velocidade);
+  }
+
+  // Mapeia a velocidade (1 a 5) para PWM (30 a 255)
+  int velocidadePWM = map(velocidade, 1, 5, 30, 255);
+
+  // Desliga motores antes de acionar novos
+  digitalWrite(Motor_DF, LOW);
+  digitalWrite(Motor_DT, LOW);
+  digitalWrite(Motor_EF, LOW);
+  digitalWrite(Motor_ET, LOW);
+
+  // Executa comandos recebidos
+  if (comando == 1) {
+    analogWrite(Motor_EF, velocidadePWM);
+    analogWrite(Motor_DF, velocidadePWM);
+  }
+  else if (comando == 2) {
+    analogWrite(Motor_ET, velocidadePWM);
+    analogWrite(Motor_DT, velocidadePWM);
+  }
+  else if (comando == 3) {
+    analogWrite(Motor_EF, velocidadePWM);
+    analogWrite(Motor_DT, velocidadePWM);
+  }
+  else if (comando == 4) {
+    analogWrite(Motor_DF, velocidadePWM);
+    analogWrite(Motor_ET, velocidadePWM);
+  }
+  else { // comando == 0 ou inválido
+    digitalWrite(Motor_DT, LOW);
+    digitalWrite(Motor_DF, LOW);
+    digitalWrite(Motor_ET, LOW);
+    digitalWrite(Motor_EF, LOW);
+  }
+}
