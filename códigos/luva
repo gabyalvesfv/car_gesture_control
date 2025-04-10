@@ -1,1 +1,57 @@
+#include <Wire.h>
+#include <SPI.h>
+#include <MPU6050.h>
 
+MPU6050 mpu;
+
+int dadosEnviar[2]; // [comando, velocidade]
+
+void setup() {
+  Serial.begin(115200); // Comunicação serial com o ESP32 (via TX/RX)
+
+  Wire.begin();
+  mpu.initialize();
+
+  if (!mpu.testConnection()) {
+    Serial.println("MPU6050 não conectado!");
+    while (1); // Se não encontrar o MPU6050, o programa fica preso aqui.
+  }
+
+  Serial.println("Controle NRF com MPU6050 pronto!");
+}
+
+void loop() {
+  int16_t ax, ay, az;
+  int16_t gx, gy, gz;
+
+  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+  int comando = 0;
+  // Define direção com base na inclinação
+  if (ay > 15000) {
+    comando = 1; // Frente
+  } else if (ay < -15000) {
+    comando = 2; // Trás
+  } else if (ax > 8000) {
+    comando = 3; // Direita
+  } else if (ax < -8000) {
+    comando = 4; // Esquerda
+  } else {
+    comando = 0; // Parado
+  }
+
+  // Define velocidade com base na inclinação no eixo Y
+  int intensidade = abs(ay);  // Pega intensidade da inclinação frontal/traseira
+  int velocidade = map(intensidade, 0, 17000, 1, 5);
+  velocidade = constrain(velocidade, 1, 5);
+
+  dadosEnviar[0] = comando;
+  dadosEnviar[1] = velocidade;
+  
+  // Envia comando e velocidade via Serial
+  Serial.print(dadosEnviar[0]);
+  Serial.print(",");
+  Serial.println(dadosEnviar[1]);
+
+  delay(100);
+}
